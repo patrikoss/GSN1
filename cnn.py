@@ -41,20 +41,24 @@ def load_dataset():
 
 def train(model, device, train_loader, optimizer, epoch, log_interval=10):
     model.train()
+    correct_predictions, all_predictions = 0, 0
     for batch_idx, (data, target) in enumerate(train_loader):
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
-        loss = F.nll_loss(output, target)
+        loss = F.cross_entropy(output, target)
         loss.backward()
         optimizer.step()
 
+
         # calculate accuracy
         _, predicted = torch.max(output, 1)
-        c = (predicted == target).squeeze()
-        print("Accuracy of mini batch: ", torch.sum(c)/len(c))
+        correct = (predicted == target)
+        correct_predictions += torch.sum(correct).item()
+        all_predictions += predicted.shape[0]
 
         if batch_idx % log_interval == 0:
+            print("Train accuracy: ", correct_predictions / all_predictions)
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                        100. * batch_idx / len(train_loader), loss.item()))
@@ -67,6 +71,7 @@ if __name__=='__main__':
     device = torch.device("cpu")
     train_loader = load_dataset()
     model = Net().to(device)
-    optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
+    optimizer = optim.Adam(model.parameters())
     for epoch in range(1, 100):
         train(model, device, train_loader, optimizer, epoch)
