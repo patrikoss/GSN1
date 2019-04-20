@@ -11,17 +11,20 @@ class Net(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=3, padding=(1,1))
         self.batch_norm1 = nn.BatchNorm2d(num_features=3)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=16, kernel_size=3, padding=(1,1))
+        self.conv2 = nn.Conv2d(in_channels=6, out_channels=12, kernel_size=3, padding=(1,1))
         self.batch_norm2 = nn.BatchNorm2d(num_features=6)
+        self.conv3 = nn.Conv2d(in_channels=12, out_channels=24, kernel_size=3, padding=(1,1))
+        self.batch_norm3 = nn.BatchNorm2d(num_features=12)
 
-        self.fc1 = nn.Linear(in_features=16 * 25 * 25, out_features=120)
+        self.fc1 = nn.Linear(in_features=24 * 12 * 12, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=84)
         self.fc3 = nn.Linear(in_features=84, out_features=96)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(self.batch_norm1(x))))
         x = self.pool(F.relu(self.conv2(self.batch_norm2(x))))
-        x = x.view(-1, 16 * 25 * 25)
+        x = self.pool(F.relu(self.conv3(self.batch_norm3(x))))
+        x = x.view(-1, 24 * 12 * 12)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
@@ -97,7 +100,7 @@ if __name__=='__main__':
     train_loader = load_dataset(args.train_images)
     test_loader = load_dataset(args.test_images)
     model = Net().to(device)
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     for epoch in range(1, 100):
         train(model, device, train_loader, optimizer, epoch)
         test(model, device, test_loader)
