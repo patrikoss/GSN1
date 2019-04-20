@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision
+import argparse
 
 class Net(nn.Module):
     def __init__(self):
@@ -24,10 +25,9 @@ class Net(nn.Module):
         x = self.fc3(x)
         return x
 
-def load_dataset():
-    data_path = '/home/patryk/studia/gsn/fruits-360/Training'
+def load_dataset(image_dataset_path):
     train_dataset = torchvision.datasets.ImageFolder(
-        root=data_path,
+        root=image_dataset_path,
         transform=torchvision.transforms.ToTensor()
     )
     train_loader = torch.utils.data.DataLoader(
@@ -66,12 +66,17 @@ def train(model, device, train_loader, optimizer, epoch, log_interval=10):
 
 
 if __name__=='__main__':
+    parser = argparse.ArgumentParser(description='PyTorch CNN for fruit classification')
+    parser.add_argument('--use_cuda', action='store_true', default=False,
+                        help='enables CUDA training')
+    parser.add_argument('--train_images', help='path to train images folder')
+    #parser.add_argument('--test_images', help='path to test images folder')
+    args = parser.parse_args()
 
-    #device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device = torch.device("cpu")
-    train_loader = load_dataset()
+    use_cuda = args.use_cuda and torch.cuda.is_available()
+    device = torch.device("cuda" if use_cuda else "cpu")
+    train_loader = load_dataset(args.train_images)
     model = Net().to(device)
-    #optimizer = optim.SGD(model.parameters(), lr=0.001, momentum=0.9)
     optimizer = optim.Adam(model.parameters())
     for epoch in range(1, 100):
         train(model, device, train_loader, optimizer, epoch)
