@@ -20,36 +20,6 @@ def plot_heatmap(img):
         plt.pcolor(img[plot_nr], cmap=plt.cm.Reds)
     plt.show()
 
-def example_heatmap():
-    x = np.random.randint(0, 256, (100, 100))
-    plt.pcolor(x, cmap=plt.cm.Reds)
-    plt.show()
-
-# def occlusion_heatmap(model, image_path, target_cls, device):
-#     if target_cls not in CLASSES_BY_NAME:
-#         raise Exception("Invalid target_cls name")
-#     target_nr = CLASSES_BY_NAME[target_cls]
-#
-#     target = torch.tensor([target_nr], dtype=torch.int64)
-#     data = torch.tensor(np.array(Image.open(image_path), dtype=np.float32)).permute(2,0,1).unsqueeze(0)
-#     #import  ipdb; ipdb.set_trace()
-#     print(data.shape)
-#     with torch.no_grad():
-#         data, target = data.to(device), target.to(device)
-#         output = model(data)
-#         #import ipdb; ipdb.set_trace()
-#         pred = output.argmax(dim=1, keepdim=True).item()
-#         print("Predicted class: ", CLASSES_BY_NR[pred])
-
-def plot_image(img, channel_first=True):
-    """Plots image"""
-    img = np.array(img)
-    assert len(img.shape) == 3
-    if channel_first:
-        Image.fromarray(np.moveaxis(255*img, 0,-1).astype(np.uint8), mode='RGB').show()
-        return
-    else:
-        Image.fromarray((255*img).astype(np.uint8), mode='RGB').show()
 
 def occlude_img(img, height, width, occ_kernel, value=None):
     """
@@ -64,43 +34,6 @@ def occlude_img(img, height, width, occ_kernel, value=None):
     occluded = img.clone()
     occluded[:, top:bottom, left:right] = value
     return occluded
-
-
-def heatmap_example(model, loader, device):
-    data, target = next(iter(loader))
-
-    # data, target = data.to(device), target.to(device)
-    # output = model(data)
-    # pred = output.argmax(dim=1, keepdim=True).item()
-    # print("Ground truth: ", CLASSES_BY_NR[target.item()])
-    # print("Predicted class: ", CLASSES_BY_NR[pred])
-
-    occluded = occlude_img(data[0], 20,40, 10, 0)
-    #plot_image(data[0])
-    #plot_image(occluded)
-    import ipdb; ipdb.set_trace()
-    im_chanel, im_height, im_width = data[0].shape
-    losses = np.zeros((im_height, im_width))
-
-    #with torch.no_grad():
-    for pos_height in range(im_height):
-        for pos_width in range(im_width):
-
-            occluded_img = occlude_img(data[0], pos_height, pos_width, 100, 1)
-            output = model(occluded_img.unsqueeze(0))
-            loss = F.cross_entropy(output, target)
-            loss.backward()
-            #import ipdb; ipdb.set_trace()
-            losses[pos_height, pos_width] = loss
-
-
-    # normalize and plot heatmap
-    xmax, xmin = losses.max(), losses.min()
-    losses = (losses - xmin) / (xmax - xmin)
-    plt.pcolor(losses, cmap=plt.cm.Reds)
-    plot_image(data[0])
-    plt.show()
-    #import ipdb; ipdb.set_trace()
 
 def plot_occlusion_heatmap(image, target_cls):
     """
