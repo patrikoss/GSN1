@@ -8,27 +8,25 @@ import argparse
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=3, out_channels=6, kernel_size=3, padding=(1,1))
+        self.conv1 = nn.Conv2d(in_channels=3, out_channels=8, kernel_size=3, padding=(1,1))
         self.batch_norm1 = nn.BatchNorm2d(num_features=3)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
-        self.conv2 = nn.Conv2d(in_channels=6, out_channels=12, kernel_size=3, padding=(1,1))
-        self.batch_norm2 = nn.BatchNorm2d(num_features=6)
-        self.conv3 = nn.Conv2d(in_channels=12, out_channels=24, kernel_size=3, padding=(1,1))
-        self.batch_norm3 = nn.BatchNorm2d(num_features=12)
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=(1,1))
+        self.batch_norm2 = nn.BatchNorm2d(num_features=8)
 
-        self.fc1 = nn.Linear(in_features=24 * 12 * 12, out_features=120)
+        self.fc1 = nn.Linear(in_features=16 * 25 * 25, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=84)
         self.fc3 = nn.Linear(in_features=84, out_features=96)
 
     def forward(self, x):
         x = self.pool(F.relu(self.conv1(self.batch_norm1(x))))
         x = self.pool(F.relu(self.conv2(self.batch_norm2(x))))
-        x = self.pool(F.relu(self.conv3(self.batch_norm3(x))))
-        x = x.view(-1, 24 * 12 * 12)
+        x = x.view(-1, 16 * 25 * 25)
         x = F.relu(self.fc1(x))
         x = F.relu(self.fc2(x))
         x = self.fc3(x)
         return x
+
 
 def load_dataset(image_dataset_path):
     train_dataset = torchvision.datasets.ImageFolder(
@@ -89,6 +87,9 @@ def test(model, device, test_loader):
 
 if __name__=='__main__':
     parser = argparse.ArgumentParser(description='PyTorch CNN for fruit classification')
+    parser.add_argument('--no_train', action='store_true', default=False)
+    parser.add_argument('--save_weights', help='path to where to save the weights', required=False)
+    parser.add_argument('--load_weights', help='path from where to load the weights', required=False)
     parser.add_argument('--use_cuda', action='store_true', default=False,
                         help='enables CUDA training')
     parser.add_argument('--train_images', help='path to train images folder')
@@ -97,10 +98,18 @@ if __name__=='__main__':
 
     use_cuda = args.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    train_loader = load_dataset(args.train_images)
-    test_loader = load_dataset(args.test_images)
     model = Net().to(device)
-    optimizer = optim.Adam(model.parameters(), lr=0.001)
-    for epoch in range(1, 100):
-        train(model, device, train_loader, optimizer, epoch)
-        test(model, device, test_loader)
+    test_loader = load_dataset(args.test_images)
+
+    if args.no_train:
+        model.load_state_dict(torch.load(args.load_weights))
+        model.eval()
+    else:
+        train_loader = load_dataset(args.train_images)
+        optimizer = optim.Adam(model.parameters(), lr=0.0001)
+        for epoch in range(1, 11):
+            train(model, device, train_loader, optimizer, epoch)
+            test(model, device, test_loader)
+        if args.save_weights:
+            torch.save(model.state_dict(), args.save_weights)
+
