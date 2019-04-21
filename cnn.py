@@ -1,11 +1,34 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.autograd import Variable
 import torch.optim as optim
 import torchvision
 import argparse
 
+def batch_norm(channels, device, bf=0.9):
+    bn_params = Variable(torch.ones(channels, 2), requires_grad=True).to(device)
 
+    def run_batch_norm(x):
+        """
+        x is of shape B,C,H,W
+        """
+        epsilon = 0.000001
+
+        B,C,H,W = x.shape
+        m = B * H * W
+        mean = 1/m * torch.sum(x, dim=[0,2,3], keepdim=True)
+
+        x_ = x - mean
+        variance = 1/m * torch.sum(x_ ** 2, dim=[0,2,3], keepdim=True)
+
+        x_bn = (x - mean)/torch.sqrt(variance+epsilon)
+        y_bn = bn_params[:,0].unsqueeze(0).unsqueeze(2).unsqueeze(3) * x_bn + \
+               bn_params[:,1].unsqueeze(0).unsqueeze(2).unsqueeze(3)
+
+        return y_bn
+
+    return run_batch_norm
 
 # function to extract and save intermediate grad
 def set_grad(grads_acc):
@@ -14,13 +37,16 @@ def set_grad(grads_acc):
     return hook
 
 class Net(nn.Module):
-    def __init__(self):
+    def __init__(self, device):
         super(Net, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=8, kernel_size=3, padding=(1,1))
-        self.batch_norm1 = nn.BatchNorm2d(num_features=3)
+        #self.batch_norm1 = nn.BatchNorm2d(num_features=3)
+        self.batch_norm1 = batch_norm(channels=3, device=device)
         self.pool = nn.MaxPool2d(kernel_size=2, stride=2)
         self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=(1,1))
-        self.batch_norm2 = nn.BatchNorm2d(num_features=8)
+
+        self.batch_norm2 = batch_norm(channels=8, device=device)
+        #self.batch_norm2 = nn.BatchNorm2d(num_features=8)
 
         self.fc1 = nn.Linear(in_features=16 * 25 * 25, out_features=120)
         self.fc2 = nn.Linear(in_features=120, out_features=84)
@@ -54,15 +80,6 @@ class Net(nn.Module):
         x = F.relu(x)
         x = self.fc3(x)
 
-        return x
-
-        x = x.view
-        x = self.pool(F.relu(self.conv1(self.batch_norm1(x))))
-        x = self.pool(F.relu(self.conv2(self.batch_norm2(x))))
-        x = x.view(-1, 16 * 25 * 25)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = self.fc3(x)
         return x
 
 
@@ -112,7 +129,6 @@ def test(model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
-            print(data.shape)
             import ipdb; ipdb.set_trace()
             data, target = data.to(device), target.to(device)
             output = model(data)
@@ -140,7 +156,7 @@ if __name__=='__main__':
 
     use_cuda = args.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
-    model = Net().to(device)
+    model = Net(device).to(device)
     test_loader, classes = load_dataset(args.test_images)
     #import ipdb; ipdb.set_trace()
 

@@ -16,7 +16,6 @@ def plot_heatmap(img):
     channels = img.shape[0]
     for plot_nr in range(min(channels, nrows*ncols) ):
         fig.add_subplot(nrows, ncols, plot_nr+1)
-        #plt.imshow(img[plot_nr])
         plt.pcolor(img[plot_nr], cmap=plt.cm.Reds)
     plt.show()
 
