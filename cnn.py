@@ -5,6 +5,14 @@ import torch.optim as optim
 import torchvision
 import argparse
 
+
+
+# function to extract and save intermediate grad
+def set_grad(grads_acc):
+    def hook(grad):
+        grads_acc.append(grad)
+    return hook
+
 class Net(nn.Module):
     def __init__(self):
         super(Net, self).__init__()
@@ -18,7 +26,37 @@ class Net(nn.Module):
         self.fc2 = nn.Linear(in_features=120, out_features=84)
         self.fc3 = nn.Linear(in_features=84, out_features=96)
 
+        self.grads = []
+
     def forward(self, x):
+        x = self.batch_norm1(x)
+        # save intermediate grad for visualization purposes
+        x.register_hook(set_grad(self.grads))
+        x = self.conv1(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        x = self.batch_norm2(x)
+        # save intermediate grad for visualization purposes
+        x.register_hook(set_grad(self.grads))
+        x = self.conv2(x)
+        x = F.relu(x)
+        x = self.pool(x)
+
+        # save intermediate grad for visualization purposes
+        x.register_hook(set_grad(self.grads))
+
+        x = x.view(-1, 16 * 25 * 25)
+
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
+        x = F.relu(x)
+        x = self.fc3(x)
+
+        return x
+
+        x = x.view
         x = self.pool(F.relu(self.conv1(self.batch_norm1(x))))
         x = self.pool(F.relu(self.conv2(self.batch_norm2(x))))
         x = x.view(-1, 16 * 25 * 25)
@@ -28,24 +66,26 @@ class Net(nn.Module):
         return x
 
 
-def load_dataset(image_dataset_path):
+def load_dataset(image_dataset_path, batch_size=64):
     train_dataset = torchvision.datasets.ImageFolder(
         root=image_dataset_path,
         transform=torchvision.transforms.ToTensor()
     )
     train_loader = torch.utils.data.DataLoader(
         train_dataset,
-        batch_size=64,
+        batch_size=batch_size,
         num_workers=0,
         shuffle=True
     )
-    return train_loader
+    print(train_dataset.classes)
+    return train_loader, train_dataset.classes
 
 
 def train(model, device, train_loader, optimizer, epoch, log_interval=100):
     model.train()
     correct_predictions, all_predictions = 0, 0
     for batch_idx, (data, target) in enumerate(train_loader):
+
         data, target = data.to(device), target.to(device)
         optimizer.zero_grad()
         output = model(data)
@@ -72,6 +112,8 @@ def test(model, device, test_loader):
     correct = 0
     with torch.no_grad():
         for data, target in test_loader:
+            print(data.shape)
+            import ipdb; ipdb.set_trace()
             data, target = data.to(device), target.to(device)
             output = model(data)
             test_loss += F.cross_entropy(output, target, reduction='sum').item() # sum up batch loss
@@ -99,17 +141,20 @@ if __name__=='__main__':
     use_cuda = args.use_cuda and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
     model = Net().to(device)
-    test_loader = load_dataset(args.test_images)
+    test_loader, classes = load_dataset(args.test_images)
+    #import ipdb; ipdb.set_trace()
 
     if args.no_train:
         model.load_state_dict(torch.load(args.load_weights))
         model.eval()
+        test(model, device, test_loader)
     else:
-        train_loader = load_dataset(args.train_images)
+        train_loader, _ = load_dataset(args.train_images)
         optimizer = optim.Adam(model.parameters(), lr=0.0001)
         for epoch in range(1, 11):
             train(model, device, train_loader, optimizer, epoch)
             test(model, device, test_loader)
         if args.save_weights:
             torch.save(model.state_dict(), args.save_weights)
+
 
